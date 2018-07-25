@@ -1,48 +1,52 @@
-load h.txt
-subplot 221;
-plot(h, '.'); grid
-xlabel('n');
-title('h(n)');
-f = 0 : 100 : 200000;
-M = abs(freqz(h,1,f,176400));
-subplot 223;
-semilogy(f/1000, M); grid;
-axis([0 200 0.000001 10]);
-xlabel('f[kHz]');
-title('Mag[H(f)]');
+% Diseño de filtro multibanda FIR (5 bandas) con el método óptimo
+% Banda 1 : 0 - 200 Hz; rechazo; mag = 0; ripple = -40 dB
+% Banda 2 : 220 - 380 Hz; paso; mag = 1; ripple = 3 dB
+% Banda 3 : 400 - 590 Hz; rechazo; mag = 0; ripple = -50 dB
+% Banda 4 : 610 - 700 Hz; paso; mag = 0.5; ripple = 1 dB
+% Banda 5 : 720 - 1000 Hz; rechazo; mag = 0; ripple = -60 dB
+Fs = 2000; % frecuencia de muestreo
+% Frec. límites de bandas; no se especifica la inicial ni la final
+f = [200 220 380 400 590 610 700 720];
+a = [0 1 0 0.5 0]; % amplitudes deseadas en las bandas
+% Ripple en las bandas
+r1 = 40; r2 = 3; r3 = 50; r4 = 1; r5 = 60;
+% Desviaciones en las bandas
+d1 = 10^(-r1/20);
+d2 = (10^(r2/20)-1)/(10^(r2/20)+1);
+d3 = 10^(-r3/20);
+d4 = (10^(r4/20)-1)/(10^(r4/20)+1);
+d5 = 10^(-r5/20);
+dev = [d1 d2 d3 d4 d5]; % vector de desviaciones
+[O, fo, ao, w] = remezord(f, a, dev, Fs); % estima orden del filtro
+O % despliega orden = (N-1)
+b = remez(O, fo, ao, w); % diseña el filtro
+% Respuesta de frecuencia obtenida
+[H, f] = freqz(b, 1, 1024, Fs);
+plot(f, 20*log10(abs(H))); xlabel('Hz'); ylabel('dB'); grid
+hold on
+% Diseño de filtro multibanda FIR (5 bandas) con el método óptimo
+% Banda 1 : 0 - 200 Hz; rechazo; mag = 0; ripple = -40 dB
+% Banda 2 : 220 - 380 Hz; paso; mag = 1; ripple = 3 dB
+% Banda 3 : 400 - 590 Hz; rechazo; mag = 0; ripple = -50 dB
+% Banda 4 : 610 - 700 Hz; paso; mag = 0.5; ripple = 1 dB
+% Banda 5 : 720 - 1000 Hz; rechazo; mag = 0; ripple = -60 dB
+Fs = 2000; % frecuencia de muestreo
+% Frec. límites de bandas; no se especifica la inicial ni la final
+f = [200 220 380 400 590 610 700 720];
+e = [1 0 1 0 1]; % amplitudes deseadas en las bandas
+% Ripple en las bandas
+ra = 3; rb = 40; rc = 3; rd = 40; re = 3;
+% Desviaciones en las bandas
+da = (10^(r1/20)-1)/(10^(r1/20)+1);
+db = 10^(-r2/20);
+dc = (10^(r3/20)-1)/(10^(r3/20)+1);
+dd = 10^(-r4/20);
+de = (10^(r5/20)-1)/(10^(r5/20)+1);
+dev = [da db dc dd de]; % vector de desviaciones
+[O, fo, ao, w] = remezord(f, e, dev, Fs); % estima orden del filtro
+O % despliega orden = (N-1)
+b = remez(O, fo, ao, w); % diseña el filtro
+% Respuesta de frecuencia obtenida
+[H, f] = freqz(b, 1, 1024, Fs);
+plot(f, 20*log10(abs(H))); xlabel('Hz'); ylabel('dB'); grid
 
-% Carga primeras 1000 muestras de carpenters.wav en el vector x
-m = wavread('carpenters');
-x = m(1 : 1000);
-% Calcula la magnitud del espectro de x entre 0 y 200 kHz
-f = 0 : 100 : 200000; % [Hz]
-M1 = abs(freqz(x, 1, f, 44100)); % Fs = 44100 m/s
-% Grafica M1
-subplot 221; semilogy(f/1000,M1); axis([0 200 0.01 10]); grid
-title('1: Espectro de secuencia original');
-xlabel('f [kHz]'); ylabel('Magnitud')
-% Cuadruplica tasa de muestreo de la secuencia intercalando ceros
-x4 = zeros(1, 4000); % prepara nueva secuencia, denominada x4
-x4(1 : 4 : 4000) = x(1 : 1 : 1000); % copia muestras de x en x4
-% Grafica 100 muestras de x4 a partir de la muestra 300
-% para evitar la transiente inicial
-subplot 222; stem(x4); axis([300 340 -0.1 +0.1]); grid
-title('2: Secuencia con ceros (x4)'); xlabel('n');
-% Filtra x4 con el filtro digital pasabajos, generando y
-load h.txt
-y = conv(x4, h);
-
-% Como 3 de cada 4 muestras son cero, el filtro digital
-% atenúa 4 veces. Se compensa multiplicando por 4
-y = 4 * y;
-% Grafica 'y'. Como el filtro digital introduce un retardo de
-% 258/2 = 129 muestras, grafica 'y' desplazado 129 muestras
-% para facilitar la comparación con x4
-subplot 224; stem(y); axis([429 469 -0.1 +0.1]); grid
-title('4: Secuencia x4 filtrada'); xlabel('n');
-% Calcula la magnitud del espectro de 'y' entre 0 y 200 kHz
-M2 = abs(freqz(y, 1, f, 176400));
-% Grafica M2
-subplot 223; semilogy(f/1000, M2); axis([0 200 0.01 10]); grid;
-title('3: Espectro de secuencia x4 filtrada');
-xlabel('f [kHz]'); ylabel('Magnitud')
